@@ -1,7 +1,13 @@
 from enum import Enum
-from typing import List
+from typing import List, Optional, Dict, Any
 
 import pandas as pd
+
+
+class DataType(Enum):
+    X_TRAIN = "x_train"
+    X_TEST = "x_test"
+    Y_TRAIN = "y_train"
 
 
 class ModelInterface:
@@ -23,10 +29,19 @@ class PropertyGetter:
 
 class MLProject(PropertyGetter):
     columns: List[str] = None
-    x_train: pd.DataFrame = None
     columns_to_dummify: List[str] = []
     bool_columns_to_integer: List[str] = []
     model: ModelInterface
+    fit_kwargs: Dict[str, Any]
+
+    def __init__(self):
+        self._x_train: Optional[pd.DataFrame] = None
+
+    @property
+    def x_train(self) -> pd.DataFrame:
+        if self._x_train is None:
+            self._x_train = self.prepare_data(DataType.X_TRAIN)
+        return self._x_train
 
     def load_x_train(self) -> pd.DataFrame:
         raise NotImplementedError
@@ -34,18 +49,16 @@ class MLProject(PropertyGetter):
     def load_y_train(self) -> pd.DataFrame:
         raise NotImplementedError
 
-    def get_model(self) -> ModelInterface:
-        raise NotImplementedError
-
-    def prepare_x_data(self):
-        self.x_train = self.load_x_train()[[*self.get("columns")]]
-        self.x_train = pd.get_dummies(self.x_train, columns=self.get("columns_to_dummify"))
+    def prepare_data(self, data_type: DataType) -> pd.DataFrame:
+        x_data = (self.load_x_train if data_type == DataType.X_TRAIN else self.load_y_train)()[[*self.get("columns")]]
+        x_data = pd.get_dummies(x_data, columns=self.get("columns_to_dummify"))
         for column_name in self.get("bool_columns_to_integer"):
-            self.x_train[column_name] = self.x_train[column_name].astype(int)
+            x_data[column_name] = x_data[column_name].astype(int)
+        return x_data
 
     def train(self):
-        model = self.get_model()
-        model.fit()
+        self.model = self.get("model")
+        self.model.fit(x=self.x_train, **self.get("fit_kwargs"))
 
 
 class CSVLoaderMixin(PropertyGetter):
@@ -53,16 +66,12 @@ class CSVLoaderMixin(PropertyGetter):
     x_test_file_path: str
     y_train_file_path: str
 
-    class FileType(Enum):
-        X_TRAIN = "x_train"
-        X_TEST = "x_test"
-        Y_TRAIN = "y_train"
-
-    def load_csv(self, file_type: FileType):
-        return pd.read_csv(self.get(f"{file_type.value}_file_path"))
+    def load_csv(self, data_type: DataType):
+        return pd.read_csv(self.get(f"{data_type.value}_file_path"))
 
     def load_x_train(self) -> pd.DataFrame:
-        return self.load_csv(self.FileType.X_TRAIN)
+        # todo : use get("x_train")
+        return self.load_csv(DataType.X_TRAIN)
 
     def load_y_train(self) -> pd.DataFrame:
-        return self.load_csv(self.FileType.X_TEST)
+        return self.load_csv(DataType.X_TEST)
