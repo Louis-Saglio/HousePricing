@@ -6,6 +6,8 @@ WORKDIR project
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
+RUN export PYTHONPATH=$PYTHONPATH:/project/libs
+
 RUN mkdir notebooks
 WORKDIR notebooks
 
