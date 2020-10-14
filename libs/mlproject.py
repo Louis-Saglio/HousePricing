@@ -28,20 +28,27 @@ class PropertyGetter:
 
 
 class MLProject(PropertyGetter):
-    columns: List[str] = None
-    columns_to_dummify: List[str] = []
-    bool_columns_to_integer: List[str] = []
+    x_columns: List[str] = None
+    x_columns_to_dummify: List[str] = []
+    x_bool_columns_to_integer: List[str] = []
     model: ModelInterface
     fit_kwargs: Dict[str, Any]
 
     def __init__(self):
         self._x_train: Optional[pd.DataFrame] = None
+        self._y_train: Optional[pd.DataFrame] = None
 
     @property
     def x_train(self) -> pd.DataFrame:
         if self._x_train is None:
-            self._x_train = self.prepare_data(DataType.X_TRAIN)
+            self._x_train = self._prepare_data(DataType.X_TRAIN)
         return self._x_train
+
+    @property
+    def y_train(self) -> pd.DataFrame:
+        if self._y_train is None:
+            self._y_train = self._prepare_data(DataType.Y_TRAIN)
+        return self._y_train
 
     def load_x_train(self) -> pd.DataFrame:
         raise NotImplementedError
@@ -49,16 +56,27 @@ class MLProject(PropertyGetter):
     def load_y_train(self) -> pd.DataFrame:
         raise NotImplementedError
 
-    def prepare_data(self, data_type: DataType) -> pd.DataFrame:
-        x_data = (self.load_x_train if data_type == DataType.X_TRAIN else self.load_y_train)()[[*self.get("columns")]]
-        x_data = pd.get_dummies(x_data, columns=self.get("columns_to_dummify"))
-        for column_name in self.get("bool_columns_to_integer"):
-            x_data[column_name] = x_data[column_name].astype(int)
-        return x_data
+    def _prepare_data(self, data_type: DataType) -> pd.DataFrame:
+        if data_type == DataType.X_TRAIN:
+            load_method = self.load_x_train
+            prefix = "x"
+        elif data_type == DataType.Y_TRAIN:
+            load_method = self.load_y_train
+            prefix = "y"
+        elif data_type == DataType.X_TEST:
+            load_method = self.load_x_test
+            prefix = "x"
+        else:
+            raise RuntimeError(f"Data type not recognized : {data_type}")
+        data = load_method()[[*self.get(f"{prefix}_columns")]]
+        data = pd.get_dummies(data, columns=self.get(f"{prefix}_columns_to_dummify"))
+        for column_name in self.get(f"{prefix}_bool_columns_to_integer"):
+            data[column_name] = data[column_name].astype(int)
+        return data
 
     def train(self):
         self.model = self.get("model")
-        self.model.fit(x=self.x_train, **self.get("fit_kwargs"))
+        self.model.fit(x=self.x_train, y=self.y_train, **self.get("fit_kwargs"))
 
 
 class CSVLoaderMixin(PropertyGetter):
