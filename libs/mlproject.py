@@ -28,24 +28,24 @@ class MLProject(PropertyGetter):
     bool_columns_to_integer: List[str] = []
     model: ModelInterface
 
-    def load_x_train_data(self) -> pd.DataFrame:
+    def load_x_train(self) -> pd.DataFrame:
         raise NotImplementedError
 
     def load_y_train(self) -> pd.DataFrame:
         raise NotImplementedError
 
+    def get_model(self) -> ModelInterface:
+        raise NotImplementedError
+
     def prepare_x_data(self):
-        self.x_train = self.load_x_train_data()[[*self.get("columns")]]
-        self.x_train = pd.get_dummies(self.x_train, columns=self.columns_to_dummify)
-        for column_name in self.bool_columns_to_integer:
+        self.x_train = self.load_x_train()[[*self.get("columns")]]
+        self.x_train = pd.get_dummies(self.x_train, columns=self.get("columns_to_dummify"))
+        for column_name in self.get("bool_columns_to_integer"):
             self.x_train[column_name] = self.x_train[column_name].astype(int)
 
     def train(self):
-        model = self.build_model()
+        model = self.get_model()
         model.fit()
-
-    def build_model(self) -> ModelInterface:
-        raise NotImplementedError
 
 
 class CSVLoaderMixin(PropertyGetter):
@@ -61,8 +61,8 @@ class CSVLoaderMixin(PropertyGetter):
     def load_csv(self, file_type: FileType):
         return pd.read_csv(self.get(f"{file_type.value}_file_path"))
 
-    def load_x_train_data(self) -> pd.DataFrame:
+    def load_x_train(self) -> pd.DataFrame:
         return self.load_csv(self.FileType.X_TRAIN)
 
-    def load_y_train_data(self) -> pd.DataFrame:
+    def load_y_train(self) -> pd.DataFrame:
         return self.load_csv(self.FileType.X_TEST)
