@@ -1,7 +1,9 @@
 from enum import Enum
 from typing import List, Optional, Dict, Any
 
+import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score
 
 
 class DataCategory(Enum):
@@ -15,7 +17,10 @@ class DataInformation(Enum):
 
 
 class ModelInterface:
-    def fit(self, *args, **kwargs):
+    def fit(self, x, y, *args, **kwargs):
+        raise NotImplementedError
+
+    def predict(self, x) -> np.ndarray:
         raise NotImplementedError
 
 
@@ -39,11 +44,13 @@ class MLProject(PropertyGetter):
     x_bool_columns_to_integer: List[str] = []
     y_bool_columns_to_integer: List[str] = []
     model: ModelInterface
-    fit_kwargs: Dict[str, Any]
+    fit_kwargs: Dict[str, Any] = {}
 
     def __init__(self):
         self._x_train: Optional[pd.DataFrame] = None
         self._y_train: Optional[pd.DataFrame] = None
+        self._x_test: Optional[pd.DataFrame] = None
+        self._y_train_pred: Optional[np.ndarray] = None
 
     @property
     def x_train(self) -> pd.DataFrame:
@@ -56,6 +63,18 @@ class MLProject(PropertyGetter):
         if self._y_train is None:
             self._y_train = self._prepare_data(DataInformation.Y, DataCategory.TRAIN)
         return self._y_train
+
+    @property
+    def x_test(self):
+        if self._x_test is None:
+            self._x_test = self._prepare_data(DataInformation.X, DataCategory.TEST)
+        return self._x_test
+
+    @property
+    def y_train_pred(self):
+        if self._y_train_pred is None:
+            self._y_train_pred = self.predict()
+        return self._y_train_pred
 
     def load_train_data(self) -> pd.DataFrame:
         raise NotImplementedError
@@ -73,7 +92,16 @@ class MLProject(PropertyGetter):
 
     def train(self):
         self.model = self.get("model")
-        self.model.fit(x=self.x_train, y=self.y_train, **self.get("fit_kwargs"))
+        self.model.fit(x=self.x_train.to_numpy(), y=self.y_train, **self.get("fit_kwargs"))
+
+    def predict(self) -> np.ndarray:
+        return self.model.predict(self.x_train)
+
+    def prepare_prediction(self):
+        return self.y_train_pred
+
+    def compute_accuracy(self) -> float:
+        return accuracy_score(self.y_train, self.prepare_prediction())
 
 
 class CSVLoaderMixin(PropertyGetter):
