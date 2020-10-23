@@ -92,7 +92,7 @@ class MLProject(PropertyGetter):
 
     def train(self):
         self.model = self.get("model")
-        self.model.fit(x=self.x_train.to_numpy(), y=self.y_train, **self.get("fit_kwargs"))
+        self.model.fit(self.x_train.to_numpy(), self.y_train, **self.get("fit_kwargs"))
 
     def predict(self) -> np.ndarray:
         return self.model.predict(self.x_train)
