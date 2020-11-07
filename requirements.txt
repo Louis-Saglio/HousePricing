@@ -8,3 +8,4 @@ scikit-learn~=0.23.2
 seaborn
 opencv-python~=4.4.0.44
 scipy
+statsmodels
